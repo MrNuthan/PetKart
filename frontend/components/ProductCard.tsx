@@ -1,15 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router';
-import { Plus, Star, ShieldCheck, Leaf } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Star, ShieldCheck, Leaf, Check } from 'lucide-react';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
 
 interface ProductCardProps {
   product: Product;
+  index?: number;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
   const { addToCart } = useCart();
+  const [isAdded, setIsAdded] = useState(false);
+
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isAdded) return;
+    setIsAdded(true);
+    await addToCart(product);
+    setTimeout(() => setIsAdded(false), 1500);
+  };
 
   const getBadge = () => {
     if (product.category === 'Food') return { text: 'Grain-Free', icon: Leaf, color: 'text-emerald-400' };
@@ -21,7 +32,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const badge = getBadge();
 
   return (
-    <div className="group bg-zinc-900 rounded-sm overflow-hidden transition-all duration-300 hover:shadow-xl flex flex-col h-full w-full">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.05, ease: 'easeOut' }}
+      whileHover={{ y: -4, transition: { duration: 0.25 } }}
+      className="group bg-zinc-900 rounded-sm overflow-hidden transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/5 flex flex-col h-full w-full"
+    >
       {/* Image Section */}
       <Link
         to={`/product/${product.id}`}
@@ -41,16 +58,41 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
         )}
 
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            addToCart(product);
-          }}
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-pink-600 text-white text-[10px] font-bold px-3 py-1.5 rounded tracking-wide hover:bg-pink-700 flex items-center gap-1"
+        <motion.button
+          onClick={handleAddToCart}
+          whileTap={{ scale: 0.92 }}
+          className={`absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 text-white text-[10px] font-bold px-3 py-1.5 rounded tracking-wide flex items-center gap-1 ${
+            isAdded
+              ? 'bg-emerald-500 hover:bg-emerald-500'
+              : 'bg-primary hover:bg-primary-hover'
+          }`}
         >
-          <Plus className="w-3 h-3" />
-          ADD TO BAG
-        </button>
+          <AnimatePresence mode="wait">
+            {isAdded ? (
+              <motion.span
+                key="added"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-1"
+              >
+                <Check className="w-3 h-3" />
+                ADDED!
+              </motion.span>
+            ) : (
+              <motion.span
+                key="add"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                ADD TO CART
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
       </Link>
 
       {/* Content */}
@@ -83,7 +125,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </span>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

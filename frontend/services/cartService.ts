@@ -1,5 +1,4 @@
 import api from './api';
-import { CartItem, Product } from '../types';
 
 export const cartService = {
     getCart: async () => {
@@ -7,8 +6,8 @@ export const cartService = {
         // Transform the nested backend response to match frontend CartItem interface
         return response.data.items.map((item: any) => ({
             ...item.product,
-            product_id: item.product.id, // Ensure strict mapping
-            id: item.product.id, // Use product ID as the main identifier for frontend compatibility
+            product_id: item.product.id,
+            id: item.product.id,
             quantity: item.quantity
         }));
     },
@@ -28,6 +27,6 @@ export const cartService = {
     },
 
     clearCart: async () => {
-        // Implementation for clearing cart if available or needed
+        await api.post('/cart/clear/');
     }
 };

@@ -9,6 +9,7 @@ const api = axios.create({
   },
 });
 
+// Request interceptor: attach token only if it exists
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -22,28 +23,41 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor: handle 401 with token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // If we get a 401 and haven't retried yet, try refreshing the token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
+
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
           const response = await axios.post(`${BASE_URL}/token/refresh/`, {
             refresh: refreshToken,
           });
           const { access } = response.data;
           localStorage.setItem('access_token', access);
           api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+          originalRequest.headers['Authorization'] = `Bearer ${access}`;
           return api(originalRequest);
+        } catch (refreshError) {
+          // Refresh failed — clear all auth data so stale tokens don't block public requests
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+          delete api.defaults.headers.common['Authorization'];
+          // Don't redirect on public endpoints — just let the request fail gracefully
+          return Promise.reject(refreshError);
         }
-      } catch (err) {
+      } else {
+        // No refresh token available — clear stale access token
         localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        delete api.defaults.headers.common['Authorization'];
       }
     }
     return Promise.reject(error);

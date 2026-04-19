@@ -4,7 +4,7 @@ import { User } from '../types';
 interface LoginResponse {
     access: string;
     refresh: string;
-    user: User; // Assuming backend returns user info on login, if not we fetch it separately
+    user: User;
 }
 
 interface RegisterData {
@@ -17,7 +17,6 @@ interface RegisterData {
 
 export const authService = {
     login: async (email: string, password: string) => {
-        // User model USERNAME_FIELD is 'email', so SimpleJWT expects 'email' key in payload.
         const response = await api.post('/token/', { email, password });
         return response.data;
     },
@@ -33,7 +32,7 @@ export const authService = {
         return response.data;
     },
 
-    getCurrentUser: async () => {
+    getCurrentUser: async (): Promise<User> => {
         const response = await api.get('/users/me/');
         const data = response.data;
         return {
@@ -42,7 +41,30 @@ export const authService = {
             email: data.email,
             firstName: data.first_name,
             lastName: data.last_name,
-            avatar: data.avatar // assuming avatar key matches or is handled similarly
+            avatar: data.avatar,
+            phone: data.phone || '',
+            address: data.address || '',
+        };
+    },
+
+    updateProfile: async (profileData: {
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+    }): Promise<User> => {
+        const response = await api.patch('/users/update_profile/', profileData);
+        const data = response.data;
+        return {
+            id: data.id,
+            username: data.username,
+            email: data.email,
+            firstName: data.first_name,
+            lastName: data.last_name,
+            avatar: data.avatar,
+            phone: data.phone || '',
+            address: data.address || '',
         };
     },
 };

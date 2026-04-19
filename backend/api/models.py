@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -38,6 +39,16 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    def update_rating(self):
+        """Recalculate product rating from all reviews."""
+        reviews = self.reviews.all()
+        if reviews.exists():
+            avg = reviews.aggregate(models.Avg('rating'))['rating__avg']
+            self.rating = round(avg, 2)
+        else:
+            self.rating = 0.00
+        self.save(update_fields=['rating'])
+
 class Cart(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -55,9 +66,17 @@ class CartItem(models.Model):
 
 class Order(models.Model):
     STATUS_CHOICES = (
-        ('Pending', 'Pending'),
-        ('Completed', 'Completed'),
+        ('Placed', 'Placed'),
+        ('Packed', 'Packed'),
+        ('Shipped', 'Shipped'),
+        ('Out for Delivery', 'Out for Delivery'),
+        ('Delivered', 'Delivered'),
         ('Cancelled', 'Cancelled'),
+    )
+
+    PAYMENT_METHOD_CHOICES = (
+        ('razorpay', 'Razorpay'),
+        ('cod', 'Cash on Delivery'),
     )
 
     user = models.ForeignKey(User, related_name='orders', on_delete=models.CASCADE)
@@ -69,7 +88,14 @@ class Order(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='Pending'
+        default='Placed'
+    )
+
+    # Payment method
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default='razorpay'
     )
 
     # Razorpay
@@ -86,14 +112,16 @@ class Order(models.Model):
     country = models.CharField(max_length=100, default="India")
     phone = models.CharField(max_length=20, blank=True, null=True)
 
+    # Timestamps for tracking
     created_at = models.DateTimeField(auto_now_add=True)
+    packed_at = models.DateTimeField(blank=True, null=True)
+    shipped_at = models.DateTimeField(blank=True, null=True)
+    out_for_delivery_at = models.DateTimeField(blank=True, null=True)
+    delivered_at = models.DateTimeField(blank=True, null=True)
+    cancelled_at = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
-        return f"Order #{self.id} - {self.user} - {self.status}"
-
-
-    def __str__(self):
-        return f"Order {self.id} by {self.user.email}"
+        return f"Order #{self.id} - {self.user.email} - {self.status} ({self.payment_method})"
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
@@ -115,3 +143,31 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.product.name}"
+
+class Review(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='reviews', null=True, blank=True)
+    rating = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'product')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.product.name} ({self.rating}★)"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Auto-update product rating when a review is saved
+        self.product.update_rating()
+
+    def delete(self, *args, **kwargs):
+        product = self.product
+        super().delete(*args, **kwargs)
+        product.update_rating()

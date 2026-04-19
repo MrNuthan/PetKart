@@ -1,7 +1,7 @@
 
 import React from 'react';
-// Fix: Importing from 'react-router' to resolve 'no exported member' errors in this environment
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router';
+import { AnimatePresence } from 'framer-motion';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
@@ -29,19 +29,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-const AppContent: React.FC = () => {
+const AnimatedRoutes: React.FC = () => {
   const location = useLocation();
-  const isAuthPage = ['/login', '/register'].includes(location.pathname);
 
   return (
-    <div className="relative min-h-screen bg-dark-950 flex flex-col selection:bg-primary/30 selection:text-white overflow-hidden">
-      {/* Background Aura Decorations - Updated to warm teal and rose */}
-      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[60%] bg-primary/10 rounded-full blur-[140px] animate-aura-drift pointer-events-none -z-10" />
-      <div className="fixed bottom-[-10%] right-[-5%] w-[45%] h-[55%] bg-primary-coral/10 rounded-full blur-[140px] animate-aura-drift [animation-delay:-7s] pointer-events-none -z-10" />
-
-      {!isAuthPage && <Navbar />}
-      <main className="flex-grow">
-        <ScrollToTop />
+    <AnimatePresence mode="wait">
+      <div key={location.pathname}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/product/:id" element={<ProductDetail />} />
@@ -65,6 +58,25 @@ const AppContent: React.FC = () => {
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
         </Routes>
+      </div>
+    </AnimatePresence>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const location = useLocation();
+  const isAuthPage = ['/login', '/register'].includes(location.pathname);
+
+  return (
+    <div className="relative min-h-screen bg-dark-950 flex flex-col selection:bg-primary/30 selection:text-white overflow-hidden">
+      {/* Background Aura Decorations */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[60%] bg-primary/10 rounded-full blur-[140px] animate-aura-drift pointer-events-none -z-10" />
+      <div className="fixed bottom-[-10%] right-[-5%] w-[45%] h-[55%] bg-primary-coral/10 rounded-full blur-[140px] animate-aura-drift [animation-delay:-7s] pointer-events-none -z-10" />
+
+      {!isAuthPage && <Navbar />}
+      <main className="flex-grow">
+        <ScrollToTop />
+        <AnimatedRoutes />
       </main>
       {!isAuthPage && <Footer />}
     </div>

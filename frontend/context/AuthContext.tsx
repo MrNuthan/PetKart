@@ -7,7 +7,7 @@ interface AuthContextType extends AuthState {
   login: (email: string, pass: string) => Promise<void>;
   register: (data: { username: string, email: string, password: string }) => Promise<void>;
   logout: () => void;
-  updateUser: (data: Partial<User>) => void;
+  updateUser: (data: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (data: { username: string, email: string, password: string }) => {
     try {
       await authService.register(data);
-      await login(data.username, data.password);
+      await login(data.email, data.password);
     } catch (error) {
       console.error("Registration failed", error);
       throw error;
@@ -67,15 +67,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('user');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('cart');
+    localStorage.removeItem('favorites');
     setAuth({ user: null, token: null, isLoading: false });
-    window.location.href = '/login';
+    window.location.hash = '#/login';
+    window.location.reload();
   };
 
-  const updateUser = (data: Partial<User>) => {
-    if (auth.user) {
-      const newUser = { ...auth.user, ...data };
-      setAuth(prev => ({ ...prev, user: newUser }));
-      localStorage.setItem('user', JSON.stringify(newUser));
+  const updateUser = async (data: Partial<User>) => {
+    if (!auth.user) return;
+
+    // Update local state immediately for responsiveness
+    const newUser = { ...auth.user, ...data };
+    setAuth(prev => ({ ...prev, user: newUser }));
+    localStorage.setItem('user', JSON.stringify(newUser));
+
+    // Persist to backend
+    try {
+      const backendPayload: Record<string, string> = {};
+      if (data.firstName !== undefined) backendPayload.first_name = data.firstName;
+      if (data.lastName !== undefined) backendPayload.last_name = data.lastName;
+      if (data.email !== undefined) backendPayload.email = data.email;
+      if (data.phone !== undefined) backendPayload.phone = data.phone;
+      if (data.address !== undefined) backendPayload.address = data.address;
+
+      const updatedUser = await authService.updateProfile(backendPayload);
+      setAuth(prev => ({ ...prev, user: updatedUser }));
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error("Failed to update profile on backend", error);
+      // Revert on failure
+      setAuth(prev => ({ ...prev, user: auth.user }));
+      localStorage.setItem('user', JSON.stringify(auth.user));
+      throw error;
     }
   };
 

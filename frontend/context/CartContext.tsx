@@ -8,7 +8,7 @@ interface CartContextType extends CartState {
   addToCart: (product: Product, quantity?: number) => Promise<void>;
   removeFromCart: (productId: string) => Promise<void>;
   updateQuantity: (productId: string, delta: number) => Promise<void>;
-  clearCart: () => void;
+  clearCart: () => Promise<void>;
   syncCart: () => Promise<void>;
 }
 
@@ -45,11 +45,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addToCart = async (product: Product, quantity: number = 1) => {
     if (user) {
       try {
-        const updatedItem = await cartService.addToCart(product.id, quantity);
-        // Ideally backend returns full cart or we update local state optimally
+        await cartService.addToCart(product.id, quantity);
         await syncCart();
       } catch (error) {
         console.error("Failed to add to cart", error);
+        throw error; // Re-throw so callers can handle it
       }
     } else {
       setItems(prev => {
@@ -65,16 +65,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const removeFromCart = async (productId: string) => {
     if (user) {
       try {
-        // Assuming we need cart item id, but if productId is passed we might need to find it first or backend handles productId
-        // Implementation detail: cartService.removeFromCart expects itemId. 
-        // We need to map productId to itemId or change service. 
-        // For now assuming we find the item in local items state.
-        const item = items.find(i => i.product_id === productId || i.id === productId);
-        if (item) {
-          // item.id should be the cart item unique id from backend
-          await cartService.removeFromCart(item.id);
-          await syncCart();
-        }
+        await cartService.removeFromCart(productId);
+        await syncCart();
       } catch (error) {
         console.error("Failed to remove from cart", error);
       }
@@ -110,10 +102,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = async () => {
     if (user) {
-      await cartService.clearCart();
-      setItems([]);
-    } else {
-      setItems([]);
+      try {
+        await cartService.clearCart();
+      } catch (error) {
+        console.error("Failed to clear cart on backend", error);
+      }
+    }
+    // Always clear local state
+    setItems([]);
+    if (!user) {
+      localStorage.removeItem('cart');
     }
   };
 
