@@ -138,7 +138,7 @@ celerybeat.pid
 .env
 .venv
 env/
-venv/
+backend/venv/
 ENV/
 env.bak/
 venv.bak/
@@ -188,5 +188,33 @@ bower_components
 psd
 thumb
 sketch
+# Env
+.env
+.env.*
+*.env
+
+# React build
+dist/
+build/
+.vite/
+.next/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Media
+media/
+uploads/
+
+# Node
+node_modules/
+**/node_modules/
+
+# IDE
+.vscode/
+.idea/
 
 # End of https://www.toptal.com/developers/gitignore/api/react,django
